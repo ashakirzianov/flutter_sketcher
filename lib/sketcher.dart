@@ -5,8 +5,9 @@ typedef Render<State> = void Function(Canvas canvas, Size size, State state);
 typedef Animator<State> = State Function(State state);
 
 class Layer<State> {
-  const Layer({required this.render});
-  final Render<State> render;
+  const Layer({this.render, this.background});
+  final Render<State>? render;
+  final Render<State>? background;
 }
 
 class SceneWidget<S> extends StatefulWidget {
@@ -27,7 +28,6 @@ class SceneWidget<S> extends StatefulWidget {
 
 class _SceneWidgetState<S> extends State<SceneWidget<S>> {
   late S state;
-  ui.Image? _cachedImage;
 
   @override
   void initState() {
@@ -45,6 +45,38 @@ class _SceneWidgetState<S> extends State<SceneWidget<S>> {
     });
   }
 
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        for (var layer in widget.layers)
+          LayerWidget<S>(
+            state: state,
+            render: layer.render,
+            background: layer.background,
+          ),
+      ],
+    );
+  }
+}
+
+class LayerWidget<S> extends StatefulWidget {
+  const LayerWidget({
+    Key? key,
+    required this.state,
+    this.render,
+    this.background,
+  }) : super(key: key);
+  final S state;
+  final Render<S>? render;
+  final Render<S>? background;
+
+  @override
+  State<LayerWidget<S>> createState() => _LayerWidgetState<S>();
+}
+
+class _LayerWidgetState<S> extends State<LayerWidget<S>> {
+  ui.Image? _cachedImage;
   void updateCachedImage(ui.Image image) {
     setState(() {
       _cachedImage = image;
@@ -53,53 +85,58 @@ class _SceneWidgetState<S> extends State<SceneWidget<S>> {
 
   @override
   Widget build(BuildContext context) {
+    var foreground = widget.render != null
+        ? CanvasPainter(
+            onFinish: updateCachedImage,
+            render: (canvas, size) {
+              if (_cachedImage != null) {
+                canvas.drawImage(_cachedImage!, Offset.zero, Paint());
+              }
+              widget.render!(canvas, size, widget.state);
+            },
+          )
+        : null;
+    var painter = widget.background != null
+        ? CanvasPainter(render: (canvas, size) {
+            widget.background!(canvas, size, widget.state);
+          })
+        : null;
     return CustomPaint(
-      painter: ScenePainter<S>(
-        layers: widget.layers,
-        state: state,
-        cachedImage: _cachedImage,
-        onImageUpdated: updateCachedImage,
-      ),
+      painter: painter,
+      foregroundPainter: foreground,
       size: MediaQuery.of(context).size,
     );
   }
 }
 
-class ScenePainter<S> extends CustomPainter {
-  ScenePainter({
-    required this.layers,
-    required this.state,
-    required this.cachedImage,
-    required this.onImageUpdated,
+class CanvasPainter<S> extends CustomPainter {
+  const CanvasPainter({
+    required this.render,
+    this.onFinish,
   });
 
-  final List<Layer<S>> layers;
-  final S state;
-  final ui.Image? cachedImage;
-  final Function(ui.Image) onImageUpdated;
+  final Function(Canvas, Size) render;
+  final Function(ui.Image)? onFinish;
 
   @override
   void paint(Canvas canvas, Size size) {
-    var recorder = ui.PictureRecorder();
-    final offscreenCanvas = Canvas(recorder);
-    if (cachedImage != null) {
-      canvas.drawImage(cachedImage!, Offset.zero, Paint());
-      offscreenCanvas.drawImage(cachedImage!, Offset.zero, Paint());
-    }
+    if (onFinish == null) {
+      render(canvas, size);
+    } else {
+      var recorder = ui.PictureRecorder();
+      final offscreenCanvas = Canvas(recorder);
+      render(offscreenCanvas, size);
+      render(canvas, size);
 
-    for (final layer in layers) {
-      layer.render(offscreenCanvas, size, state);
-      layer.render(canvas, size, state);
+      final picture = recorder.endRecording();
+      picture.toImage(size.width.toInt(), size.height.toInt()).then((image) {
+        onFinish!(image.clone());
+      });
     }
-
-    final picture = recorder.endRecording();
-    picture.toImage(size.width.toInt(), size.height.toInt()).then((image) {
-      onImageUpdated(image.clone());
-    });
   }
 
   @override
-  bool shouldRepaint(ScenePainter<S> oldDelegate) {
-    return true;
+  bool shouldRepaint(CanvasPainter<S> oldDelegate) {
+    return onFinish != null;
   }
 }

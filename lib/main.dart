@@ -28,15 +28,23 @@ class MyHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: Container(
+        body: SizedBox(
       width: double.infinity,
       height: double.infinity,
-      child: SceneWidget<int>(
+      child: SceneWidget(
         state: 0,
         animator: (state) => state + 1,
         layers: [
           Layer<int>(
-            render: (Canvas canvas, Size size, int state) {
+            background: (canvas, size, state) {
+              canvas.drawRect(
+                  Rect.fromLTWH(0, 0, size.width, size.height),
+                  Paint()
+                    ..color = Colors.red
+                    ..style = PaintingStyle.stroke
+                    ..strokeWidth = 10);
+            },
+            render: (canvas, size, state) {
               final paint = Paint()
                 ..color = Colors.black
                 ..style = PaintingStyle.fill;
@@ -45,12 +53,6 @@ class MyHomePage extends StatelessWidget {
                 size.width / 2,
                 paint,
               );
-              canvas.drawRect(
-                  Rect.fromLTWH(0, 0, size.width, size.height),
-                  Paint()
-                    ..color = Colors.red
-                    ..style = PaintingStyle.stroke
-                    ..strokeWidth = 10);
             },
           ),
         ],
