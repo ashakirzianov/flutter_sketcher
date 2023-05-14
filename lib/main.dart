@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_sketcher/sketcher.dart';
+import 'package:flutter_sketcher/rythm.dart';
 
 void main() {
   runApp(const MyApp());
@@ -27,36 +27,12 @@ class MyHomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
         body: SizedBox(
       width: double.infinity,
       height: double.infinity,
-      child: SceneWidget(
-        state: 0,
-        animator: (state) => state + 1,
-        layers: [
-          Layer<int>(
-            background: (canvas, size, state) {
-              canvas.drawRect(
-                  Rect.fromLTWH(0, 0, size.width, size.height),
-                  Paint()
-                    ..color = Colors.red
-                    ..style = PaintingStyle.stroke
-                    ..strokeWidth = 10);
-            },
-            render: (canvas, size, state) {
-              final paint = Paint()
-                ..color = Colors.black
-                ..style = PaintingStyle.fill;
-              canvas.drawCircle(
-                Offset(size.width / 2, size.height / 2 + state.toDouble()),
-                size.width / 2,
-                paint,
-              );
-            },
-          ),
-        ],
-      ),
+      child: RythmWeb(),
+      // child: Text("Hello World"),
     ));
   }
 }

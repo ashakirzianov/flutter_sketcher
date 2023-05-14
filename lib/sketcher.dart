@@ -1,7 +1,8 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
-typedef Render<State> = void Function(Canvas canvas, Size size, State state);
+typedef Render<State> = void Function(
+    Canvas canvas, Size size, State state, int frame);
 typedef Animator<State> = State Function(State state);
 
 class Layer<State> {
@@ -28,6 +29,7 @@ class SceneWidget<S> extends StatefulWidget {
 
 class _SceneWidgetState<S> extends State<SceneWidget<S>> {
   late S state;
+  int frame = 0;
 
   @override
   void initState() {
@@ -40,6 +42,7 @@ class _SceneWidgetState<S> extends State<SceneWidget<S>> {
     Future.delayed(const Duration(milliseconds: 40), () {
       setState(() {
         state = widget.animator(state);
+        frame++;
       });
       loop();
     });
@@ -52,6 +55,7 @@ class _SceneWidgetState<S> extends State<SceneWidget<S>> {
         for (var layer in widget.layers)
           LayerWidget<S>(
             state: state,
+            frame: frame,
             render: layer.render,
             background: layer.background,
           ),
@@ -64,10 +68,12 @@ class LayerWidget<S> extends StatefulWidget {
   const LayerWidget({
     Key? key,
     required this.state,
+    required this.frame,
     this.render,
     this.background,
   }) : super(key: key);
   final S state;
+  final int frame;
   final Render<S>? render;
   final Render<S>? background;
 
@@ -92,13 +98,14 @@ class _LayerWidgetState<S> extends State<LayerWidget<S>> {
               if (_cachedImage != null) {
                 canvas.drawImage(_cachedImage!, Offset.zero, Paint());
               }
-              widget.render!(canvas, size, widget.state);
+              // print((widget.state as List<dynamic>)[0]!.position);
+              widget.render!(canvas, size, widget.state, widget.frame);
             },
           )
         : null;
     var painter = widget.background != null
         ? CanvasPainter(render: (canvas, size) {
-            widget.background!(canvas, size, widget.state);
+            widget.background!(canvas, size, widget.state, widget.frame);
           })
         : null;
     return CustomPaint(
@@ -124,7 +131,8 @@ class CanvasPainter<S> extends CustomPainter {
       render(canvas, size);
     } else {
       var recorder = ui.PictureRecorder();
-      final offscreenCanvas = Canvas(recorder);
+      final offscreenCanvas =
+          Canvas(recorder, Rect.fromLTWH(0, 0, size.width, size.height));
       render(offscreenCanvas, size);
       render(canvas, size);
 
@@ -137,6 +145,10 @@ class CanvasPainter<S> extends CustomPainter {
 
   @override
   bool shouldRepaint(CanvasPainter<S> oldDelegate) {
-    return onFinish != null;
+    return true;
   }
+}
+
+S modItem<S>(List<S> items, int index) {
+  return items[index % items.length];
 }
